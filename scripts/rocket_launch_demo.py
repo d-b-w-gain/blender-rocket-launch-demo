@@ -45,6 +45,8 @@ ASSETS_DIR = PROJECT_ROOT / "assets"
 REFERENCE_DIR = PROJECT_ROOT / "reference"
 RENDERS_DIR = PROJECT_ROOT / "renders"
 CACHE_DIR = RENDERS_DIR / "cache"
+OUTWARD_SMOKE_CACHE_DIR = CACHE_DIR / "outward_smoke"
+ROCKET_TRAIL_CACHE_DIR = CACHE_DIR / "rocket_trail"
 GENERATED_BLEND_PATH = RENDERS_DIR / "rocket_launch_demo.generated.blend"
 ROCKET_TEXTURE_DIR = ASSETS_DIR / "rocket" / "blender" / "textures"
 
@@ -53,6 +55,27 @@ LAUNCH_FRAME = 40
 FRAME_END = 200
 ROCKET_LAUNCH_HEIGHT = 90.0
 ROCKET_BLEND_OBJECT_NAME = "BezierCurve.002"
+OUTWARD_SMOKE_DOMAIN_SIZE = (130.0, 130.0, 55.0)
+OUTWARD_SMOKE_DOMAIN_LOCATION = (0.0, 0.0, 27.5)
+OUTWARD_SMOKE_INNER_START = 40
+OUTWARD_SMOKE_OUTER_START = 50
+OUTWARD_SMOKE_STOP = 120
+OUTWARD_SMOKE_INNER_VELOCITY = 90.0
+OUTWARD_SMOKE_OUTER_VELOCITY = 50.0
+OUTWARD_SMOKE_INNER_DOWNWARD_BIAS = -0.18
+OUTWARD_SMOKE_OUTER_DOWNWARD_BIAS = -0.28
+ROCKET_TRAIL_DOMAIN_SIZE = (50.0, 50.0, 105.0)
+ROCKET_TRAIL_DOMAIN_LOCATION = (0.0, 0.0, 52.5)
+ROCKET_TRAIL_FIRE_VELOCITY_Z = -200.0
+ROCKET_TRAIL_SMOKE_START_VELOCITY_Z = -200.0
+ROCKET_TRAIL_SMOKE_SETTLED_VELOCITY_Z = -10.0
+ROCKET_TRAIL_SMOKE_VELOCITY_START_FRAME = 70
+ROCKET_TRAIL_SMOKE_VELOCITY_SETTLED_FRAME = 80
+OUTWARD_SMOKE_DENSITY_MULTIPLIER = 25.0
+OUTWARD_SMOKE_ABSORPTION_COLOR = (0.8, 0.8, 0.8, 1.0)
+ROCKET_TRAIL_SMOKE_DENSITY_MULTIPLIER = 10.0
+ROCKET_TRAIL_FIRE_EMISSION_STRENGTH = 50.0
+ROCKET_TRAIL_FIRE_TEMPERATURE = 1500.0
 DEFAULT_CAMERA_LOCATION = (0.0, -12.0, 6.0)
 DEFAULT_CAMERA_ROTATION = (1.109319, 0.0, 0.0)
 DEFAULT_LIGHT_LOCATION = (4.0, 1.0, 6.0)
@@ -82,6 +105,8 @@ def ensure_project_paths():
 
     RENDERS_DIR.mkdir(exist_ok=True)
     CACHE_DIR.mkdir(exist_ok=True)
+    OUTWARD_SMOKE_CACHE_DIR.mkdir(exist_ok=True)
+    ROCKET_TRAIL_CACHE_DIR.mkdir(exist_ok=True)
 
 
 def resolve_rocket_asset():
@@ -347,6 +372,341 @@ def action_fcurves(action):
     return fcurves
 
 
+def create_outward_smoke_setup(collections):
+    outward_collection = collections["Outward Smoke"]
+    domain = create_outward_smoke_domain(outward_collection)
+    flow_objects = create_outward_smoke_flows(outward_collection)
+    configure_outward_smoke_domain(domain, outward_collection)
+    assign_volume_material(domain, create_outward_smoke_material())
+    return domain, flow_objects
+
+
+def create_outward_smoke_domain(collection):
+    bpy.ops.mesh.primitive_cube_add(size=1.0, location=OUTWARD_SMOKE_DOMAIN_LOCATION)
+    domain = bpy.context.object
+    domain.name = "Outward Smoke Domain"
+    domain.dimensions = OUTWARD_SMOKE_DOMAIN_SIZE
+    bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
+    link_object_to_collection(domain, collection)
+    return domain
+
+
+def create_outward_smoke_flows(collection):
+    inner_specs = [
+        ("Outward Smoke Inner +X", (4.8, 0.0, 2.1), (1.0, 0.0, OUTWARD_SMOKE_INNER_DOWNWARD_BIAS), 3.25),
+        ("Outward Smoke Inner -X", (-4.8, 0.0, 2.1), (-1.0, 0.0, OUTWARD_SMOKE_INNER_DOWNWARD_BIAS), 3.25),
+        ("Outward Smoke Inner +Y", (0.0, 4.8, 2.1), (0.0, 1.0, OUTWARD_SMOKE_INNER_DOWNWARD_BIAS), 3.25),
+        ("Outward Smoke Inner -Y", (0.0, -4.8, 2.1), (0.0, -1.0, OUTWARD_SMOKE_INNER_DOWNWARD_BIAS), 3.25),
+    ]
+    outer_specs = [
+        ("Outward Smoke Outer +X", (13.5, 0.0, 1.7), (1.0, 0.0, OUTWARD_SMOKE_OUTER_DOWNWARD_BIAS), 2.5),
+        ("Outward Smoke Outer -X", (-13.5, 0.0, 1.7), (-1.0, 0.0, OUTWARD_SMOKE_OUTER_DOWNWARD_BIAS), 2.5),
+        ("Outward Smoke Outer +Y", (0.0, 13.5, 1.7), (0.0, 1.0, OUTWARD_SMOKE_OUTER_DOWNWARD_BIAS), 2.5),
+        ("Outward Smoke Outer -Y", (0.0, -13.5, 1.7), (0.0, -1.0, OUTWARD_SMOKE_OUTER_DOWNWARD_BIAS), 2.5),
+    ]
+
+    flows = []
+    for name, location, direction, radius in inner_specs:
+        flow = create_smoke_flow_disc(name, location, direction, radius, collection)
+        configure_smoke_flow(flow, OUTWARD_SMOKE_INNER_VELOCITY, OUTWARD_SMOKE_INNER_START)
+        flows.append(flow)
+
+    for name, location, direction, radius in outer_specs:
+        flow = create_smoke_flow_disc(name, location, direction, radius, collection)
+        configure_smoke_flow(flow, OUTWARD_SMOKE_OUTER_VELOCITY, OUTWARD_SMOKE_OUTER_START)
+        flows.append(flow)
+
+    return flows
+
+
+def create_smoke_flow_disc(name, location, direction, radius, collection):
+    normal = Vector(direction).normalized()
+    rotation = normal.to_track_quat("Z", "Y").to_euler()
+    bpy.ops.mesh.primitive_circle_add(
+        vertices=64,
+        radius=radius,
+        fill_type="TRIFAN",
+        location=location,
+        rotation=rotation,
+    )
+    flow = bpy.context.object
+    flow.name = name
+    flow.hide_render = True
+    link_object_to_collection(flow, collection)
+    return flow
+
+
+def configure_smoke_flow(flow, normal_velocity, start_frame):
+    bpy.context.view_layer.objects.active = flow
+    flow.select_set(True)
+    bpy.ops.object.modifier_add(type="FLUID")
+    modifier = flow.modifiers[-1]
+    modifier.name = "Smoke Flow"
+    modifier.fluid_type = "FLOW"
+
+    settings = modifier.flow_settings
+    settings.flow_type = "SMOKE"
+    settings.flow_behavior = "INFLOW"
+    settings.flow_source = "MESH"
+    settings.use_plane_init = True
+    settings.use_initial_velocity = True
+    settings.velocity_normal = normal_velocity
+
+    set_flow_enabled(settings, False, start_frame)
+    set_flow_enabled(settings, True, start_frame + 1)
+    set_flow_enabled(settings, True, OUTWARD_SMOKE_STOP)
+    set_flow_enabled(settings, False, OUTWARD_SMOKE_STOP + 1)
+    flow.select_set(False)
+
+
+def set_flow_enabled(settings, enabled, frame):
+    settings.use_inflow = enabled
+    settings.keyframe_insert(data_path="use_inflow", frame=frame)
+
+
+def configure_outward_smoke_domain(domain, flow_collection):
+    bpy.context.view_layer.objects.active = domain
+    domain.select_set(True)
+    bpy.ops.object.modifier_add(type="FLUID")
+    modifier = domain.modifiers[-1]
+    modifier.name = "Outward Smoke Domain"
+    modifier.fluid_type = "DOMAIN"
+
+    settings = modifier.domain_settings
+    settings.domain_type = "GAS"
+    settings.resolution_max = 196
+    settings.use_collision_border_bottom = True
+    settings.use_adaptive_domain = True
+    settings.alpha = 0.7
+    settings.beta = 0.7
+    settings.use_noise = True
+    settings.noise_scale = 1
+    settings.noise_strength = 0.6
+    settings.cache_type = "MODULAR"
+    settings.cache_resumable = True
+    settings.cache_frame_start = FRAME_START
+    settings.cache_frame_end = FRAME_END
+    settings.cache_directory = str(OUTWARD_SMOKE_CACHE_DIR)
+    settings.force_collection = flow_collection
+    domain.select_set(False)
+
+
+def create_rocket_trail_setup(collections, rocket_object):
+    trail_collection = collections["Rocket Trail"]
+    domain = create_rocket_trail_domain(trail_collection)
+    fire_flow = create_rocket_trail_flow(
+        name="Rocket Trail Fire Flow",
+        radius=1.45,
+        scale_x=1.35,
+        rocket_object=rocket_object,
+        collection=trail_collection,
+    )
+    smoke_flow = create_rocket_trail_flow(
+        name="Rocket Trail Smoke Flow",
+        radius=1.75,
+        scale_x=1.45,
+        rocket_object=rocket_object,
+        collection=trail_collection,
+    )
+    configure_rocket_trail_fire_flow(fire_flow)
+    configure_rocket_trail_smoke_flow(smoke_flow)
+    configure_rocket_trail_domain(domain, trail_collection)
+    assign_volume_material(domain, create_rocket_trail_material())
+    return domain, fire_flow, smoke_flow
+
+
+def create_rocket_trail_domain(collection):
+    bpy.ops.mesh.primitive_cube_add(size=1.0, location=ROCKET_TRAIL_DOMAIN_LOCATION)
+    domain = bpy.context.object
+    domain.name = "Rocket Trail Domain"
+    domain.dimensions = ROCKET_TRAIL_DOMAIN_SIZE
+    bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
+    link_object_to_collection(domain, collection)
+    return domain
+
+
+def create_rocket_trail_flow(name, radius, scale_x, rocket_object, collection):
+    bpy.ops.mesh.primitive_circle_add(
+        vertices=64,
+        radius=radius,
+        fill_type="TRIFAN",
+        location=(0.0, 0.0, 0.25),
+    )
+    flow = bpy.context.object
+    flow.name = name
+    flow.scale.x = scale_x
+    bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
+    flow.parent = rocket_object
+    flow.hide_render = True
+    link_object_to_collection(flow, collection)
+    return flow
+
+
+def configure_rocket_trail_fire_flow(flow):
+    settings = add_flow_modifier(flow, "Fire Flow")
+    settings.flow_type = "FIRE"
+    settings.flow_behavior = "INFLOW"
+    settings.flow_source = "MESH"
+    settings.use_plane_init = True
+    settings.use_initial_velocity = True
+    settings.velocity_coord = (0.0, 0.0, ROCKET_TRAIL_FIRE_VELOCITY_Z)
+
+
+def configure_rocket_trail_smoke_flow(flow):
+    settings = add_flow_modifier(flow, "Smoke Flow")
+    settings.flow_type = "SMOKE"
+    settings.flow_behavior = "INFLOW"
+    settings.flow_source = "MESH"
+    settings.use_plane_init = True
+    settings.use_initial_velocity = True
+    settings.velocity_coord = (0.0, 0.0, ROCKET_TRAIL_SMOKE_START_VELOCITY_Z)
+    settings.keyframe_insert(
+        data_path="velocity_coord",
+        frame=ROCKET_TRAIL_SMOKE_VELOCITY_START_FRAME,
+    )
+    settings.velocity_coord = (0.0, 0.0, ROCKET_TRAIL_SMOKE_SETTLED_VELOCITY_Z)
+    settings.keyframe_insert(
+        data_path="velocity_coord",
+        frame=ROCKET_TRAIL_SMOKE_VELOCITY_SETTLED_FRAME,
+    )
+
+
+def add_flow_modifier(flow, name):
+    bpy.context.view_layer.objects.active = flow
+    flow.select_set(True)
+    bpy.ops.object.modifier_add(type="FLUID")
+    modifier = flow.modifiers[-1]
+    modifier.name = name
+    modifier.fluid_type = "FLOW"
+    flow.select_set(False)
+    return modifier.flow_settings
+
+
+def configure_rocket_trail_domain(domain, flow_collection):
+    bpy.context.view_layer.objects.active = domain
+    domain.select_set(True)
+    bpy.ops.object.modifier_add(type="FLUID")
+    modifier = domain.modifiers[-1]
+    modifier.name = "Rocket Trail Domain"
+    modifier.fluid_type = "DOMAIN"
+
+    settings = modifier.domain_settings
+    settings.domain_type = "GAS"
+    settings.resolution_max = 196
+    settings.use_collision_border_bottom = True
+    settings.use_adaptive_domain = True
+    settings.alpha = -0.5
+    settings.beta = -0.5
+    settings.use_noise = False
+    settings.flame_vorticity = 0.2
+    settings.cache_type = "MODULAR"
+    settings.cache_resumable = True
+    settings.cache_frame_start = FRAME_START
+    settings.cache_frame_end = FRAME_END
+    settings.cache_directory = str(ROCKET_TRAIL_CACHE_DIR)
+    settings.force_collection = flow_collection
+    domain.select_set(False)
+
+
+def assign_volume_material(domain, material):
+    domain.data.materials.clear()
+    domain.data.materials.append(material)
+
+
+def clear_material_nodes(material):
+    material.use_nodes = True
+    nodes = material.node_tree.nodes
+    for node in list(nodes):
+        nodes.remove(node)
+    return nodes, material.node_tree.links
+
+
+def create_outward_smoke_material():
+    material = bpy.data.materials.new("Outward Smoke Volume")
+    material["density_multiplier"] = OUTWARD_SMOKE_DENSITY_MULTIPLIER
+    nodes, links = clear_material_nodes(material)
+
+    output = nodes.new("ShaderNodeOutputMaterial")
+    output.location = (520, 0)
+    volume = nodes.new("ShaderNodeVolumePrincipled")
+    volume.location = (280, 0)
+    volume.inputs["Color"].default_value = (0.86, 0.86, 0.82, 1.0)
+    volume.inputs["Absorption Color"].default_value = OUTWARD_SMOKE_ABSORPTION_COLOR
+
+    info = nodes.new("ShaderNodeVolumeInfo")
+    info.location = (-520, 40)
+    ramp = nodes.new("ShaderNodeValToRGB")
+    ramp.location = (-300, 40)
+    ramp.color_ramp.elements[0].position = 0.08
+    ramp.color_ramp.elements[0].color = (0.0, 0.0, 0.0, 1.0)
+    ramp.color_ramp.elements[1].position = 0.62
+    ramp.color_ramp.elements[1].color = (1.0, 1.0, 1.0, 1.0)
+    density = nodes.new("ShaderNodeMath")
+    density.location = (-80, 40)
+    density.operation = "MULTIPLY"
+    density.inputs[1].default_value = OUTWARD_SMOKE_DENSITY_MULTIPLIER
+
+    links.new(info.outputs["Density"], ramp.inputs["Factor"])
+    links.new(ramp.outputs["Color"], density.inputs[0])
+    links.new(density.outputs["Value"], volume.inputs["Density"])
+    links.new(volume.outputs["Volume"], output.inputs["Volume"])
+    return material
+
+
+def create_rocket_trail_material():
+    material = bpy.data.materials.new("Rocket Trail Fire Smoke Volume")
+    material["smoke_density_multiplier"] = ROCKET_TRAIL_SMOKE_DENSITY_MULTIPLIER
+    material["fire_emission_strength"] = ROCKET_TRAIL_FIRE_EMISSION_STRENGTH
+    material["fire_temperature"] = ROCKET_TRAIL_FIRE_TEMPERATURE
+    nodes, links = clear_material_nodes(material)
+
+    output = nodes.new("ShaderNodeOutputMaterial")
+    output.location = (700, 0)
+    volume = nodes.new("ShaderNodeVolumePrincipled")
+    volume.location = (460, 0)
+    volume.inputs["Color"].default_value = (0.74, 0.74, 0.7, 1.0)
+    volume.inputs["Absorption Color"].default_value = (0.75, 0.75, 0.72, 1.0)
+    volume.inputs["Temperature"].default_value = ROCKET_TRAIL_FIRE_TEMPERATURE
+
+    info = nodes.new("ShaderNodeVolumeInfo")
+    info.location = (-640, 80)
+
+    smoke_ramp = nodes.new("ShaderNodeValToRGB")
+    smoke_ramp.location = (-420, 120)
+    smoke_ramp.color_ramp.elements[0].position = 0.1
+    smoke_ramp.color_ramp.elements[0].color = (0.0, 0.0, 0.0, 1.0)
+    smoke_ramp.color_ramp.elements[1].position = 0.72
+    smoke_ramp.color_ramp.elements[1].color = (1.0, 1.0, 1.0, 1.0)
+    smoke_density = nodes.new("ShaderNodeMath")
+    smoke_density.location = (-180, 120)
+    smoke_density.operation = "MULTIPLY"
+    smoke_density.inputs[1].default_value = ROCKET_TRAIL_SMOKE_DENSITY_MULTIPLIER
+
+    fire_ramp = nodes.new("ShaderNodeValToRGB")
+    fire_ramp.location = (-420, -140)
+    fire_ramp.color_ramp.elements[0].position = 0.22
+    fire_ramp.color_ramp.elements[0].color = (0.0, 0.0, 0.0, 1.0)
+    fire_ramp.color_ramp.elements[1].position = 0.78
+    fire_ramp.color_ramp.elements[1].color = (1.0, 1.0, 1.0, 1.0)
+    fire_strength = nodes.new("ShaderNodeMath")
+    fire_strength.location = (-180, -140)
+    fire_strength.operation = "MULTIPLY"
+    fire_strength.inputs[1].default_value = ROCKET_TRAIL_FIRE_EMISSION_STRENGTH
+    blackbody = nodes.new("ShaderNodeBlackbody")
+    blackbody.location = (-180, -320)
+    blackbody.inputs["Temperature"].default_value = ROCKET_TRAIL_FIRE_TEMPERATURE
+
+    links.new(info.outputs["Density"], smoke_ramp.inputs["Factor"])
+    links.new(smoke_ramp.outputs["Color"], smoke_density.inputs[0])
+    links.new(smoke_density.outputs["Value"], volume.inputs["Density"])
+    links.new(info.outputs["Flame"], fire_ramp.inputs["Factor"])
+    links.new(fire_ramp.outputs["Color"], fire_strength.inputs[0])
+    links.new(fire_strength.outputs["Value"], volume.inputs["Emission Strength"])
+    links.new(blackbody.outputs["Color"], volume.inputs["Emission Color"])
+    links.new(volume.outputs["Volume"], output.inputs["Volume"])
+    return material
+
+
 def save_generated_file():
     bpy.ops.wm.save_as_mainfile(filepath=str(GENERATED_BLEND_PATH))
 
@@ -360,7 +720,9 @@ def create_scene():
     ensure_default_camera_and_light(collections)
     configure_timeline()
     configure_render_defaults()
-    create_rocket_rig(collections, rocket_asset)
+    rocket_object = create_rocket_rig(collections, rocket_asset)
+    create_outward_smoke_setup(collections)
+    create_rocket_trail_setup(collections, rocket_object)
     save_generated_file()
 
     print(f"Rocket launch demo foundation generated: {GENERATED_BLEND_PATH}")

@@ -13,6 +13,7 @@ blendcache_*/
 cache/
 caches/
 *.vdb
+waveletNoiseTile.bin
 
 # Generated render outputs
 renders/**/*.png
