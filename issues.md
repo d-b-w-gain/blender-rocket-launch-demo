@@ -13,6 +13,8 @@ Faithful does not mean pixel-identical. Fluid simulation seeds, asset versions, 
 
 Labels: `asset`, `setup`, `documentation`
 
+Status: blocked on authenticated Sketchfab model download; source/license notes are complete.
+
 ### Summary
 
 Prepare the rocket model used by the demo and document where it came from so the Blender script can import it consistently.
@@ -30,8 +32,15 @@ Prepare the rocket model used by the demo and document where it came from so the
 - [ ] `assets/rocket/` contains the selected rocket asset.
 - [ ] The asset can be opened or imported manually in Blender 5.1.2.
 - [ ] The model has its textures or required companion files stored with it.
-- [ ] A source/license note exists in `assets/rocket/`.
-- [ ] The intended import file path is recorded for use by `scripts/rocket_launch_demo.py`.
+- [x] A source/license note exists in `assets/rocket/`.
+- [x] The intended import file path is recorded for use by `scripts/rocket_launch_demo.py`.
+
+### Progress Notes
+
+- Created `assets/rocket/SOURCE.md`.
+- Created `assets/rocket/asset_manifest.json`.
+- Saved `assets/rocket/sketchfab_thumbnail.jpg`.
+- Official Sketchfab download endpoints returned `401 Unauthorized` without credentials, so the `.blend` model file still needs a manual authenticated download.
 
 ### Dependencies
 
@@ -344,4 +353,3 @@ Tune the faithful recreation after the first full bake/render pass to get closer
 ### Dependencies
 
 - Issue 09.
-
