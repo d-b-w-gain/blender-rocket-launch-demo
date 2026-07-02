@@ -40,6 +40,8 @@ assets/**/*.gltf
 assets/**/*.hdr
 assets/**/*.exr
 !assets/.gitkeep
+!assets/rocket/
+!assets/rocket/**
 
 # Python/editor/local OS files
 __pycache__/

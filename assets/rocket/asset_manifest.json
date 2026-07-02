@@ -8,9 +8,11 @@
   "license_url": "http://creativecommons.org/licenses/by/4.0/",
   "attribution_required": true,
   "commercial_use_allowed": true,
-  "expected_import_file": "Sketchfab_2022_03_01_00_10_13.blend",
-  "expected_import_path": "assets/rocket/Sketchfab_2022_03_01_00_10_13.blend",
+  "expected_import_file": "rocket.glb",
+  "expected_import_path": "assets/rocket/rocket.glb",
+  "source_blend_path": "assets/rocket/blender/source/Sketchfab_2022_03_01_00_10_13.blend",
+  "gltf_scene_path": "assets/rocket/gltf/scene.gltf",
   "fallback_thumbnail": "assets/rocket/sketchfab_thumbnail.jpg",
-  "download_status": "manual_auth_required",
+  "download_status": "downloaded",
   "metadata_checked": "2026-07-02"
 }

@@ -52,6 +52,8 @@ None.
 
 Labels: `python`, `blender`, `setup`
 
+Status: foundation implemented and validated in Blender 5.1.2.
+
 ### Summary
 
 Build the script foundation needed for repeatable scene generation from the project folder.
@@ -69,12 +71,18 @@ Build the script foundation needed for repeatable scene generation from the proj
 
 ### Acceptance Criteria
 
-- [ ] Running the script from Blender creates a clean scene without manual setup.
-- [ ] The script resolves paths relative to the project folder, not the current working directory.
-- [ ] Required collections are created with stable names.
-- [ ] Timeline start/end frames are configured.
-- [ ] The script saves a generated `.blend` output.
-- [ ] Missing required assets produce a readable error message.
+- [x] Running the script from Blender creates a clean scene without manual setup.
+- [x] The script resolves paths relative to the project folder, not the current working directory.
+- [x] Required collections are created with stable names.
+- [x] Timeline start/end frames are configured.
+- [x] The script saves a generated `.blend` output.
+- [x] Missing required assets produce a readable error message.
+
+### Progress Notes
+
+- Added project-root path resolution for `assets/`, `reference/`, `renders/`, and `renders/cache/`.
+- Added reusable scene reset and collection helpers for rocket, smoke, trail, lighting, camera, and render helper collections.
+- Added frame range, render defaults, asset path validation, and generated `.blend` save output.
 
 ### Dependencies
 
@@ -85,6 +93,8 @@ Build the script foundation needed for repeatable scene generation from the proj
 ## Issue 03: Rocket Import and Launch Animation
 
 Labels: `animation`, `asset`, `blender`
+
+Status: tutorial-style rocket append and launch animation implemented; validated in Blender 5.1.2.
 
 ### Summary
 
@@ -103,11 +113,18 @@ Import the rocket asset, normalize it in the scene, and recreate the tutorial's 
 
 ### Acceptance Criteria
 
-- [ ] The rocket appears upright and centered at frame 1.
-- [ ] The rocket begins moving around frame 40.
-- [ ] The rocket reaches the upper part of the scene by frame 200.
-- [ ] The motion visibly accelerates rather than easing to a stop.
-- [ ] The generated scene can be scrubbed in Blender to inspect the animation.
+- [x] The rocket appears upright and centered at frame 1.
+- [x] The rocket begins moving around frame 40.
+- [x] The rocket reaches the upper part of the scene by frame 200.
+- [x] The motion visibly accelerates rather than easing to a stop.
+- [x] The generated scene can be scrubbed in Blender to inspect the animation.
+
+### Progress Notes
+
+- Added Blend/GLB/glTF rocket import support, preferring and preserving the tutorial's appended `.blend` object `BezierCurve.002`.
+- Mirrored the tutorial's initial object cleanup: delete the cube, keep the default camera/light, clear location, set the rocket upright, apply scale/rotation, set the `main_SMR` viewport display to white, and relink the downloaded texture folder.
+- Added launch keyframes at frames 40 and 200, moving the rocket upward by 90 units.
+- Approximated the tutorial's hand-shaped Graph Editor acceleration with scripted Bezier handles.
 
 ### Dependencies
 

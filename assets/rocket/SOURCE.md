@@ -1,6 +1,6 @@
 # Rocket Asset Source
 
-Status: model download requires an authenticated Sketchfab session.
+Status: downloaded and stored locally.
 
 ## Selected Asset
 
@@ -21,11 +21,17 @@ Status: model download requires an authenticated Sketchfab session.
 
 ## Required Local File
 
-Place the downloaded Blender source file here:
+The script currently prefers this local GLB for import:
 
-`assets/rocket/Sketchfab_2022_03_01_00_10_13.blend`
+`assets/rocket/rocket.glb`
 
-If Sketchfab downloads a `.zip`, extract it here and keep the `.blend` file at the path above if possible. If the filename differs, update `asset_manifest.json` before working on the import script.
+The extracted original Blender source file is also kept here:
+
+`assets/rocket/blender/source/Sketchfab_2022_03_01_00_10_13.blend`
+
+The extracted glTF scene is kept here:
+
+`assets/rocket/gltf/scene.gltf`
 
 ## Manual Download Steps
 
@@ -41,4 +47,6 @@ Rocket model: "ROCKET" by Ret.ouchs, licensed under Creative Commons Attribution
 
 ## Notes
 
-The official Sketchfab download endpoint returned `401 Unauthorized` in this Codex session because it requires authentication credentials. The model was not downloaded automatically.
+The first Codex pass could not download the model automatically because Sketchfab
+requires an authenticated session. The asset has since been downloaded manually
+and added to this folder.
