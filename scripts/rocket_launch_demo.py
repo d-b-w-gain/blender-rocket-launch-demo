@@ -6,7 +6,7 @@ Run from the project root with:
 """
 
 import os
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 
 import bpy
 from mathutils import Vector
@@ -74,11 +74,11 @@ ROCKET_TRAIL_SMOKE_START_VELOCITY_Z = -200.0
 ROCKET_TRAIL_SMOKE_SETTLED_VELOCITY_Z = -10.0
 ROCKET_TRAIL_SMOKE_VELOCITY_START_FRAME = 70
 ROCKET_TRAIL_SMOKE_VELOCITY_SETTLED_FRAME = 80
-OUTWARD_SMOKE_DENSITY_MULTIPLIER = 25.0
-OUTWARD_SMOKE_ABSORPTION_COLOR = (0.8, 0.8, 0.8, 1.0)
-ROCKET_TRAIL_SMOKE_DENSITY_MULTIPLIER = 10.0
-ROCKET_TRAIL_FIRE_EMISSION_STRENGTH = 50.0
-ROCKET_TRAIL_FIRE_TEMPERATURE = 1500.0
+OUTWARD_SMOKE_DENSITY_MULTIPLIER = 14.0
+OUTWARD_SMOKE_ABSORPTION_COLOR = (0.62, 0.62, 0.58, 1.0)
+ROCKET_TRAIL_SMOKE_DENSITY_MULTIPLIER = 5.0
+ROCKET_TRAIL_FIRE_EMISSION_STRENGTH = 24.0
+ROCKET_TRAIL_FIRE_TEMPERATURE = 1450.0
 FINAL_CAMERA_LOCATION = (76.0, -122.0, 70.0)
 FINAL_CAMERA_TARGET = (0.0, 0.0, 52.0)
 FINAL_CAMERA_ORTHO_SCALE = 190.0
@@ -365,7 +365,11 @@ def relink_rocket_textures():
         if image_path.exists():
             continue
 
-        local_path = ROCKET_TEXTURE_DIR / Path(image.filepath).name
+        texture_name = Path(image.filepath).name
+        if "\\" in texture_name:
+            texture_name = PureWindowsPath(image.filepath).name
+
+        local_path = ROCKET_TEXTURE_DIR / texture_name
         if local_path.exists():
             image.filepath = str(local_path)
             image.reload()
@@ -752,16 +756,16 @@ def create_outward_smoke_material():
     output.location = (520, 0)
     volume = nodes.new("ShaderNodeVolumePrincipled")
     volume.location = (280, 0)
-    volume.inputs["Color"].default_value = (0.86, 0.86, 0.82, 1.0)
+    volume.inputs["Color"].default_value = (0.64, 0.64, 0.6, 1.0)
     volume.inputs["Absorption Color"].default_value = OUTWARD_SMOKE_ABSORPTION_COLOR
 
     info = nodes.new("ShaderNodeVolumeInfo")
     info.location = (-520, 40)
     ramp = nodes.new("ShaderNodeValToRGB")
     ramp.location = (-300, 40)
-    ramp.color_ramp.elements[0].position = 0.08
+    ramp.color_ramp.elements[0].position = 0.16
     ramp.color_ramp.elements[0].color = (0.0, 0.0, 0.0, 1.0)
-    ramp.color_ramp.elements[1].position = 0.62
+    ramp.color_ramp.elements[1].position = 0.78
     ramp.color_ramp.elements[1].color = (1.0, 1.0, 1.0, 1.0)
     density = nodes.new("ShaderNodeMath")
     density.location = (-80, 40)
@@ -786,8 +790,8 @@ def create_rocket_trail_material():
     output.location = (700, 0)
     volume = nodes.new("ShaderNodeVolumePrincipled")
     volume.location = (460, 0)
-    volume.inputs["Color"].default_value = (0.74, 0.74, 0.7, 1.0)
-    volume.inputs["Absorption Color"].default_value = (0.75, 0.75, 0.72, 1.0)
+    volume.inputs["Color"].default_value = (0.58, 0.58, 0.55, 1.0)
+    volume.inputs["Absorption Color"].default_value = (0.58, 0.58, 0.55, 1.0)
     volume.inputs["Temperature"].default_value = ROCKET_TRAIL_FIRE_TEMPERATURE
 
     info = nodes.new("ShaderNodeVolumeInfo")
@@ -795,9 +799,9 @@ def create_rocket_trail_material():
 
     smoke_ramp = nodes.new("ShaderNodeValToRGB")
     smoke_ramp.location = (-420, 120)
-    smoke_ramp.color_ramp.elements[0].position = 0.1
+    smoke_ramp.color_ramp.elements[0].position = 0.18
     smoke_ramp.color_ramp.elements[0].color = (0.0, 0.0, 0.0, 1.0)
-    smoke_ramp.color_ramp.elements[1].position = 0.72
+    smoke_ramp.color_ramp.elements[1].position = 0.86
     smoke_ramp.color_ramp.elements[1].color = (1.0, 1.0, 1.0, 1.0)
     smoke_density = nodes.new("ShaderNodeMath")
     smoke_density.location = (-180, 120)
@@ -806,9 +810,9 @@ def create_rocket_trail_material():
 
     fire_ramp = nodes.new("ShaderNodeValToRGB")
     fire_ramp.location = (-420, -140)
-    fire_ramp.color_ramp.elements[0].position = 0.22
+    fire_ramp.color_ramp.elements[0].position = 0.38
     fire_ramp.color_ramp.elements[0].color = (0.0, 0.0, 0.0, 1.0)
-    fire_ramp.color_ramp.elements[1].position = 0.78
+    fire_ramp.color_ramp.elements[1].position = 0.9
     fire_ramp.color_ramp.elements[1].color = (1.0, 1.0, 1.0, 1.0)
     fire_strength = nodes.new("ShaderNodeMath")
     fire_strength.location = (-180, -140)

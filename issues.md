@@ -362,6 +362,8 @@ Set up the final scene presentation so the generated demo can be rendered withou
 
 Labels: `validation`, `rendering`, `simulation`
 
+Status: low-resolution validation bakes and still renders completed.
+
 ### Summary
 
 Bake the simulations, render validation stills, and compare them against the extracted video keyframes.
@@ -379,11 +381,18 @@ Bake the simulations, render validation stills, and compare them against the ext
 
 ### Acceptance Criteria
 
-- [ ] Both simulations are baked or a clear bake failure is documented.
-- [ ] Validation stills exist under `renders/validation/`.
-- [ ] Renders are compared to the keyframes, not just checked for script success.
-- [ ] The generated `.blend` file can be reopened with baked caches available.
-- [ ] A short preview animation path is documented.
+- [x] Both simulations are baked or a clear bake failure is documented.
+- [x] Validation stills exist under `renders/validation/`.
+- [x] Renders are compared to the keyframes, not just checked for script success.
+- [x] The generated `.blend` file can be reopened with baked caches available.
+- [x] A short preview animation path is documented.
+
+### Progress Notes
+
+- Added `scripts/validate_bakes.py` to generate the scene, bake low-resolution validation caches, render frames 40, 80, 120, 160, and 200, and write `renders/validation/README.md`.
+- Validation bakes use resolution 64 so the end-to-end workflow can complete quickly; the main generated scene remains configured at the tutorial-style resolution 196.
+- Ran the validation workflow successfully: both outward smoke and rocket trail data bakes completed, five validation stills were rendered, and `renders/validation/rocket_launch_validation.blend` reopens with baked cache paths available.
+- Observations recorded in `renders/validation/README.md`: smoke/fire are visible and end-to-end workflow works, but fire is too bright/solid and trail smoke needs tuning in issue 10.
 
 ### Dependencies
 
@@ -397,6 +406,8 @@ Bake the simulations, render validation stills, and compare them against the ext
 ## Issue 10: Optional Parity Polish
 
 Labels: `polish`, `visual-match`, `optional`
+
+Status: material parity polish completed; remaining differences documented for any future final-render pass.
 
 ### Summary
 
@@ -414,10 +425,18 @@ Tune the faithful recreation after the first full bake/render pass to get closer
 
 ### Acceptance Criteria
 
-- [ ] Final stills are closer to the reference than the first validation pass.
-- [ ] Important tuning changes are documented.
-- [ ] The final scene remains reproducible from script plus assets.
-- [ ] Final render settings are suitable for a full animation render.
+- [x] Final stills are closer to the reference than the first validation pass.
+- [x] Important tuning changes are documented.
+- [x] The final scene remains reproducible from script plus assets.
+- [x] Final render settings are suitable for a full animation render.
+
+### Progress Notes
+
+- Re-ran the validation workflow at medium simulation resolution `128` using `BLENDER_ROCKET_VALIDATION_RESOLUTION=128`; both smoke domains baked and rendered frames 40, 80, 120, 160, and 200 successfully.
+- Reduced material intensity after comparing the first validation pass against the tutorial PV: outward smoke density `25 -> 14`, rocket trail smoke density `10 -> 5`, fire emission strength `50 -> 24`, and fire temperature `1500 -> 1450`.
+- Adjusted smoke and fire ColorRamp thresholds so the flame is less solid and the smoke remains visible through the trail.
+- Updated `renders/validation/README.md` with the medium-pass observations and a corrected preview animation command.
+- Remaining PV gap: the tutorial's late material checks are darker viewport-style shots with chunkier grey base smoke, while this validation pass uses the final outdoor HDRI/camera render and still has softer ground smoke.
 
 ### Dependencies
 
