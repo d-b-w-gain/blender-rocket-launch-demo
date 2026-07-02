@@ -1,0 +1,53 @@
+# Blender autosaves, backups, and local temp files
+*.blend1
+*.blend2
+*.blend@
+*.blend[0-9]
+*.blend[0-9][0-9]
+*.blend[0-9][0-9][0-9]
+*.tmp
+*.temp
+
+# Blender simulation/cache output
+blendcache_*/
+cache/
+caches/
+*.vdb
+
+# Generated render outputs
+renders/**/*.png
+renders/**/*.jpg
+renders/**/*.jpeg
+renders/**/*.exr
+renders/**/*.tif
+renders/**/*.tiff
+renders/**/*.mp4
+renders/**/*.mov
+renders/**/*.avi
+renders/**/*.mkv
+renders/**/*.blend
+!renders/.gitkeep
+
+# Large/local assets should be documented before tracking intentionally
+assets/**/*.zip
+assets/**/*.7z
+assets/**/*.rar
+assets/**/*.blend
+assets/**/*.fbx
+assets/**/*.obj
+assets/**/*.glb
+assets/**/*.gltf
+assets/**/*.hdr
+assets/**/*.exr
+!assets/.gitkeep
+
+# Python/editor/local OS files
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
