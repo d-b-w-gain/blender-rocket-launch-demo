@@ -318,6 +318,8 @@ Create volume materials for smoke and fire so baked simulations render like the 
 
 Labels: `rendering`, `camera`, `lighting`
 
+Status: final camera, ground, lighting fallback, HDRI discovery, and render defaults implemented.
+
 ### Summary
 
 Set up the final scene presentation so the generated demo can be rendered without manual camera or render configuration.
@@ -334,11 +336,20 @@ Set up the final scene presentation so the generated demo can be rendered withou
 
 ### Acceptance Criteria
 
-- [ ] A camera exists and is set as the active camera.
-- [ ] Frame 1, mid-launch, and frame 200 are all reasonably framed.
-- [ ] Cycles, denoise, samples, resolution, and output path are configured.
-- [ ] The scene has usable lighting even without an HDRI.
-- [ ] Render outputs go under `renders/`.
+- [x] A camera exists and is set as the active camera.
+- [x] Frame 1, mid-launch, and frame 200 are all reasonably framed.
+- [x] Cycles, denoise, samples, resolution, and output path are configured.
+- [x] The scene has usable lighting even without an HDRI.
+- [x] Render outputs go under `renders/`.
+
+### Progress Notes
+
+- Added `Launch Field Ground` under `Render Helpers`.
+- Configured the active camera as an orthographic final render camera aimed along the launch path.
+- Added HDRI autodetection from `assets/hdri/` with fallback world lighting, area key light, and sun light.
+- Added Poly Haven's CC0 `Dry Meadow` HDRI under `assets/hdri/` to match the tutorial's outdoor field presentation more closely.
+- Set Cycles samples to 50 with denoise enabled, 1920 x 1080 output, PNG frames, Filmic high contrast color management, and output path `renders/animation/rocket_launch_demo_`.
+- Stored the world lighting source as a custom property for inspection.
 
 ### Dependencies
 

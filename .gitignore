@@ -41,6 +41,8 @@ assets/**/*.gltf
 assets/**/*.hdr
 assets/**/*.exr
 !assets/.gitkeep
+!assets/hdri/
+!assets/hdri/**
 !assets/rocket/
 !assets/rocket/**
 

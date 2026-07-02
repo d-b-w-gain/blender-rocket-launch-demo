@@ -45,10 +45,13 @@ ASSETS_DIR = PROJECT_ROOT / "assets"
 REFERENCE_DIR = PROJECT_ROOT / "reference"
 RENDERS_DIR = PROJECT_ROOT / "renders"
 CACHE_DIR = RENDERS_DIR / "cache"
+ANIMATION_OUTPUT_DIR = RENDERS_DIR / "animation"
+HDRI_DIR = ASSETS_DIR / "hdri"
 OUTWARD_SMOKE_CACHE_DIR = CACHE_DIR / "outward_smoke"
 ROCKET_TRAIL_CACHE_DIR = CACHE_DIR / "rocket_trail"
 GENERATED_BLEND_PATH = RENDERS_DIR / "rocket_launch_demo.generated.blend"
 ROCKET_TEXTURE_DIR = ASSETS_DIR / "rocket" / "blender" / "textures"
+DRY_MEADOW_BACKPLATE_PATH = HDRI_DIR / "dry_meadow_backplate_2k.jpg"
 
 FRAME_START = 1
 LAUNCH_FRAME = 40
@@ -76,9 +79,16 @@ OUTWARD_SMOKE_ABSORPTION_COLOR = (0.8, 0.8, 0.8, 1.0)
 ROCKET_TRAIL_SMOKE_DENSITY_MULTIPLIER = 10.0
 ROCKET_TRAIL_FIRE_EMISSION_STRENGTH = 50.0
 ROCKET_TRAIL_FIRE_TEMPERATURE = 1500.0
-DEFAULT_CAMERA_LOCATION = (0.0, -12.0, 6.0)
-DEFAULT_CAMERA_ROTATION = (1.109319, 0.0, 0.0)
-DEFAULT_LIGHT_LOCATION = (4.0, 1.0, 6.0)
+FINAL_CAMERA_LOCATION = (76.0, -122.0, 70.0)
+FINAL_CAMERA_TARGET = (0.0, 0.0, 52.0)
+FINAL_CAMERA_ORTHO_SCALE = 190.0
+FALLBACK_KEY_LIGHT_LOCATION = (-18.0, -26.0, 44.0)
+FALLBACK_SUN_ROTATION = (0.75, 0.0, -0.55)
+GROUND_SIZE = 170.0
+BACKPLATE_DISTANCE = 118.0
+RENDER_SAMPLES = 50
+RENDER_RESOLUTION = (1920, 1080)
+WORLD_STRENGTH = 1.35
 GENERATED_COLLECTIONS = (
     "Rocket",
     "Outward Smoke",
@@ -104,6 +114,7 @@ def ensure_project_paths():
         raise FileNotFoundError(f"Required project directories are missing:\n{formatted}")
 
     RENDERS_DIR.mkdir(exist_ok=True)
+    ANIMATION_OUTPUT_DIR.mkdir(exist_ok=True)
     CACHE_DIR.mkdir(exist_ok=True)
     OUTWARD_SMOKE_CACHE_DIR.mkdir(exist_ok=True)
     ROCKET_TRAIL_CACHE_DIR.mkdir(exist_ok=True)
@@ -162,18 +173,40 @@ def create_collections():
 def ensure_default_camera_and_light(collections):
     camera = bpy.data.objects.get("Camera")
     if camera is None:
-        bpy.ops.object.camera_add(location=DEFAULT_CAMERA_LOCATION, rotation=DEFAULT_CAMERA_ROTATION)
+        bpy.ops.object.camera_add()
         camera = bpy.context.object
         camera.name = "Camera"
+    camera.location = FINAL_CAMERA_LOCATION
+    camera.data.type = "ORTHO"
+    camera.data.ortho_scale = FINAL_CAMERA_ORTHO_SCALE
+    camera.data.lens = 45
+    camera.data.clip_end = 1000.0
+    camera.data.dof.use_dof = True
+    camera.data.dof.focus_distance = 120.0
+    camera.data.dof.aperture_fstop = 8.0
+    look_at(camera, FINAL_CAMERA_TARGET)
     bpy.context.scene.camera = camera
     link_object_to_collection(camera, collections["Camera"])
 
     light = bpy.data.objects.get("Light")
     if light is None:
-        bpy.ops.object.light_add(type="POINT", location=DEFAULT_LIGHT_LOCATION)
+        bpy.ops.object.light_add(type="AREA", location=FALLBACK_KEY_LIGHT_LOCATION)
         light = bpy.context.object
         light.name = "Light"
+    light.location = FALLBACK_KEY_LIGHT_LOCATION
+    light.data.type = "AREA"
+    light.data.energy = 800.0
+    light.data.size = 18.0
     link_object_to_collection(light, collections["Lighting"])
+
+    sun = bpy.data.objects.get("Fallback Sun")
+    if sun is None:
+        bpy.ops.object.light_add(type="SUN", rotation=FALLBACK_SUN_ROTATION)
+        sun = bpy.context.object
+        sun.name = "Fallback Sun"
+    sun.rotation_euler = FALLBACK_SUN_ROTATION
+    sun.data.energy = 0.7
+    link_object_to_collection(sun, collections["Lighting"])
 
 
 def configure_timeline():
@@ -186,17 +219,58 @@ def configure_timeline():
 def configure_render_defaults():
     scene = bpy.context.scene
     scene.render.engine = "CYCLES"
-    scene.cycles.samples = 64
+    scene.cycles.samples = RENDER_SAMPLES
     scene.cycles.use_denoising = True
-    scene.render.resolution_x = 1920
-    scene.render.resolution_y = 1080
+    scene.render.resolution_x = RENDER_RESOLUTION[0]
+    scene.render.resolution_y = RENDER_RESOLUTION[1]
     scene.render.fps = 24
-    scene.render.filepath = str(RENDERS_DIR / "rocket_launch_demo_")
+    scene.render.filepath = str(ANIMATION_OUTPUT_DIR / "rocket_launch_demo_")
+    scene.render.image_settings.file_format = "PNG"
+    scene.render.image_settings.color_mode = "RGBA"
+    scene.render.image_settings.compression = 15
 
     scene.view_settings.view_transform = "Filmic"
-    scene.view_settings.look = "Medium High Contrast"
+    scene.view_settings.look = "High Contrast"
     scene.view_settings.exposure = 0
     scene.view_settings.gamma = 1
+    configure_world_lighting()
+
+
+def look_at(obj, target):
+    direction = Vector(target) - obj.location
+    obj.rotation_euler = direction.to_track_quat("-Z", "Y").to_euler()
+
+
+def configure_world_lighting():
+    world = bpy.context.scene.world or bpy.data.worlds.new("World")
+    bpy.context.scene.world = world
+    world.use_nodes = True
+    nodes = world.node_tree.nodes
+    background = nodes.get("Background")
+    if background is None:
+        background = nodes.new("ShaderNodeBackground")
+
+    hdri_path = find_hdri_path()
+    if hdri_path:
+        environment = nodes.new("ShaderNodeTexEnvironment")
+        environment.image = bpy.data.images.load(str(hdri_path), check_existing=True)
+        world.node_tree.links.new(environment.outputs["Color"], background.inputs["Color"])
+        background.inputs["Strength"].default_value = WORLD_STRENGTH
+        world["lighting_source"] = str(hdri_path.relative_to(PROJECT_ROOT))
+    else:
+        background.inputs["Color"].default_value = (0.78, 0.82, 0.86, 1.0)
+        background.inputs["Strength"].default_value = 0.8
+        world["lighting_source"] = "fallback_world_plus_area_and_sun"
+
+
+def find_hdri_path():
+    if not HDRI_DIR.exists():
+        return None
+    for pattern in ("*.hdr", "*.exr", "*.png", "*.jpg", "*.jpeg"):
+        matches = sorted(HDRI_DIR.glob(pattern))
+        if matches:
+            return matches[0]
+    return None
 
 
 def link_object_to_collection(obj, collection):
@@ -608,6 +682,54 @@ def configure_rocket_trail_domain(domain, flow_collection):
     domain.select_set(False)
 
 
+def create_ground_plane(collections):
+    helper_collection = collections["Render Helpers"]
+    bpy.ops.mesh.primitive_plane_add(size=GROUND_SIZE, location=(0.0, 0.0, -0.02))
+    ground = bpy.context.object
+    ground.name = "Launch Field Ground"
+    material = bpy.data.materials.new("Launch Field Ground Material")
+    material.diffuse_color = (0.28, 0.25, 0.17, 1.0)
+    material.use_nodes = True
+    bsdf = material.node_tree.nodes.get("Principled BSDF")
+    if bsdf:
+        bsdf.inputs["Base Color"].default_value = (0.28, 0.25, 0.17, 1.0)
+        bsdf.inputs["Roughness"].default_value = 0.86
+    ground.data.materials.append(material)
+    link_object_to_collection(ground, helper_collection)
+    return ground
+
+
+def create_environment_backplate(collections):
+    if not DRY_MEADOW_BACKPLATE_PATH.exists():
+        return None
+
+    helper_collection = collections["Render Helpers"]
+    camera = bpy.context.scene.camera
+    direction = (Vector(FINAL_CAMERA_TARGET) - camera.location).normalized()
+    location = Vector(FINAL_CAMERA_TARGET) + direction * BACKPLATE_DISTANCE
+
+    bpy.ops.mesh.primitive_plane_add(size=1.0, location=location)
+    backplate = bpy.context.object
+    backplate.name = "Dry Meadow Backplate"
+    backplate.rotation_euler = (camera.location - backplate.location).to_track_quat("Z", "Y").to_euler()
+    aspect = RENDER_RESOLUTION[0] / RENDER_RESOLUTION[1]
+    backplate.scale = (FINAL_CAMERA_ORTHO_SCALE * aspect * 0.62, FINAL_CAMERA_ORTHO_SCALE * 0.62, 1.0)
+
+    material = bpy.data.materials.new("Dry Meadow Backplate Material")
+    material.use_nodes = True
+    nodes = material.node_tree.nodes
+    links = material.node_tree.links
+    bsdf = nodes.get("Principled BSDF")
+    image_node = nodes.new("ShaderNodeTexImage")
+    image_node.image = bpy.data.images.load(str(DRY_MEADOW_BACKPLATE_PATH), check_existing=True)
+    if bsdf:
+        links.new(image_node.outputs["Color"], bsdf.inputs["Base Color"])
+        bsdf.inputs["Roughness"].default_value = 1.0
+    backplate.data.materials.append(material)
+    link_object_to_collection(backplate, helper_collection)
+    return backplate
+
+
 def assign_volume_material(domain, material):
     domain.data.materials.clear()
     domain.data.materials.append(material)
@@ -720,6 +842,8 @@ def create_scene():
     ensure_default_camera_and_light(collections)
     configure_timeline()
     configure_render_defaults()
+    create_ground_plane(collections)
+    create_environment_backplate(collections)
     rocket_object = create_rocket_rig(collections, rocket_asset)
     create_outward_smoke_setup(collections)
     create_rocket_trail_setup(collections, rocket_object)
